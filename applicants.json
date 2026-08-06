@@ -1,0 +1,4 @@
+[
+  {"id":"CL-20260730-018","name":"陈思远","income":18500,"monthly_debt":4200,"vehicle_price":189800,"down_payment":59800,"loan_amount":130000,"loan_term":36,"work_years":3.7,"recent_overdue":true},
+  {"id":"CL-20260730-017","name":"周嘉豪","income":22000,"monthly_debt":12800,"vehicle_price":335000,"down_payment":67000,"loan_amount":268000,"loan_term":36,"work_years":1.2,"recent_overdue":true}
+]
