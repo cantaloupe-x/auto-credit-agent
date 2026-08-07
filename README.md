@@ -11,19 +11,37 @@
 ## 启动
 
 ```bash
-pip install -r backend/requirements.txt
-uvicorn backend.app:app --reload
+python -m pip install -r backend/requirements.txt
+python -m uvicorn backend.app:app --reload
 ```
 
 前端可直接打开 `frontend/index.html`。API 文档位于 `/docs`。
 
-Agent 的职责边界是检索依据、解释风险和提出补件建议；`backend/risk_engine.py` 中的规则是唯一评分来源。任何建议都保持 `pending`，最终决定必须由人工确认。字段、状态和版本集中在 `backend/domain.py`，API Schema 位于 `backend/schemas.py`。
+## 数据与评测
+
+- `data/applicants.json` 包含 15 条固定、可复现的虚构汽车贷款申请数据，覆盖不同风险情况。
+- `data/agent_eval_cases.json` 包含 15 个代表性 Agent 评测案例，覆盖风险等级、规则边界、缺件、无效输入和知识版本异常等场景。
+
+上述数据中的人物、案件、金额和记录全部为虚构测试数据，不对应任何真实个人或授信业务。
+
+## 版本化知识库
+
+当前知识库位于 `knowledge/risk-knowledge-v1.0/knowledge.json`，包含 11 条版本化测试知识，覆盖 DTI、首付、任职、逾期、融资金额一致性、贷款期限、资料完整度、收入核验、重复或异常申请、授权范围和人工确认。
+
+`backend/knowledge.py` 负责本地确定性检索。`backend/risk_engine.py` 中的规则是唯一评分来源；Agent 只能基于检索结果解释风险和建议补件，不能修改评分、自动批准或自动拒绝，最终决定必须由人工确认。
+
+## Agent API
+
+- `GET /api/agent/metadata`
+- `POST /api/agent/evaluate`
+
+字段、状态和版本集中在 `backend/domain.py`，API Schema 位于 `backend/schemas.py`。详细的数据字典与接口约定见 `docs/data-dictionary.md` 和 `docs/agent-api.md`。
+
+## 测试
 
 ```bash
-pytest -q
+python -m pytest -q
 ```
-
-详细的数据字典与接口约定见 `docs/data-dictionary.md` 和 `docs/agent-api.md`。
 
 ## 四人协作建议
 
