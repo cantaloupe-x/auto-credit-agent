@@ -1,14 +1,21 @@
+# Render 部署配置。默认走免费套餐，方便课程演示直接开起来。
+#
+# 免费套餐不支持持久磁盘，容器重启（包括休眠后唤醒）会清空数据库，
+# 页面上只会剩下启动时自动导入的两条初始案件。要让「重启后案件还在」
+# 在线上也成立，把 plan 改成 starter 并解开下面 disk 那段注释。
 services:
   - type: web
     name: auto-credit-agent
     runtime: docker
     dockerfilePath: ./Dockerfile
-    plan: starter          # 免费套餐不支持持久磁盘，要保住「重启后数据还在」就得用 starter
+    plan: free
     healthCheckPath: /api/health
     envVars:
       - key: AUTO_CREDIT_DB
+        # 免费套餐下这个目录是临时的；换成持久磁盘后同一个路径就能持久化。
         value: /var/data/auto_credit.db
-    disk:
-      name: auto-credit-data
-      mountPath: /var/data
-      sizeGB: 1
+    # plan 改成 starter 后解开这段，即可获得 1GB 持久磁盘：
+    # disk:
+    #   name: auto-credit-data
+    #   mountPath: /var/data
+    #   sizeGB: 1
