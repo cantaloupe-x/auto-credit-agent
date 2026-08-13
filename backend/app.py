@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 import json
+import os
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, status
@@ -15,8 +16,11 @@ from .storage import ApplicationStore
 
 
 ROOT = Path(__file__).parents[1]
-DEFAULT_DATABASE = ROOT / "data" / "auto_credit.db"
 SEED_DATA = ROOT / "data" / "applicants.json"
+
+# 部署时用 AUTO_CREDIT_DB 指向持久磁盘的挂载目录，例如 /var/data/auto_credit.db。
+# 不设这个变量就还是走仓库里的 data/auto_credit.db，本地开发不受影响。
+DEFAULT_DATABASE = Path(os.environ.get("AUTO_CREDIT_DB") or ROOT / "data" / "auto_credit.db")
 
 
 def create_app(database_path=None):
