@@ -1,64 +1,120 @@
-import json
-from pathlib import Path
-
+import pytest
 from fastapi.testclient import TestClient
 
-from backend.app import app
+from backend.app import create_app
 
 
-client = TestClient(app)
+VALID_APPLICATION = {
+    "name": "测试申请人",
+    "city": "上海市",
+    "occupation": "企业职员",
+    "vehicle_model": "测试车辆",
+    "vehicle_source": "4S 店新车",
+    "income": 20000,
+    "monthly_debt": 3000,
+    "vehicle_price": 200000,
+    "down_payment": 80000,
+    "loan_amount": 120000,
+    "loan_term": 36,
+    "work_years": 5,
+    "recent_overdue": False,
+    "authorized": True,
+}
 
 
-APPLICATION = {"name": "测试申请人", "income": 20000, "monthly_debt": 3000, "vehicle_price": 200000, "down_payment": 80000, "loan_amount": 120000}
+def test_health_and_seed_applications(tmp_path):
+    with TestClient(create_app(tmp_path / "test.db")) as client:
+        frontend = client.get("/")
+        assert client.get("/api/health").json() == {
+            "status": "ok",
+            "database": "ok",
+        }
+        applications = client.get("/api/applications").json()
+
+    assert frontend.status_code == 200
+    assert "车贷智审" in frontend.text
+    assert len(applications) == 2
+    assert applications[0]["model_version"] == "rule-v1.0"
 
 
-def test_existing_assess_api_contract_is_preserved():
-    response = client.post("/api/applications/assess", json=APPLICATION)
+def test_application_persists_after_restart(tmp_path):
+    database = tmp_path / "test.db"
+    with TestClient(create_app(database)) as client:
+        response = client.post("/api/applications", json=VALID_APPLICATION)
+        assert response.status_code == 201
+        application_id = response.json()["id"]
+
+    with TestClient(create_app(database)) as client:
+        application = client.get(f"/api/applications/{application_id}").json()
+
+    assert application["name"] == "测试申请人"
+    assert application["score"] == 100
+    assert application["status"] == "pending_review"
+
+
+def test_manual_review_and_audit_trail(tmp_path):
+    with TestClient(create_app(tmp_path / "test.db")) as client:
+        created = client.post("/api/applications", json=VALID_APPLICATION).json()
+        application_id = created["id"]
+        response = client.patch(
+            f"/api/applications/{application_id}/review",
+            json={
+                "decision": "rejected",
+                "comment": "负债材料仍需进一步核实",
+                "reviewer": "林晓雯",
+            },
+        )
+        events = client.get(f"/api/applications/{application_id}/audit").json()
+
     assert response.status_code == 200
-    assert set(response.json()) == {"application", "assessment"}
-    assert response.json()["assessment"]["model_version"] == "rule-v1.0"
-
-
-def test_agent_api_and_metadata_contract():
-    metadata = client.get("/api/agent/metadata")
-    assert metadata.status_code == 200
-    assert metadata.json()["model_api_required"] is False
-    assert metadata.json()["fictional_test_data"] is True
-
-    response = client.post("/api/agent/evaluate", json={"application": APPLICATION})
-    assert response.status_code == 200
-    body = response.json()
-    assert body["schema_version"] == "agent-schema-v1.0"
-    assert body["human_decision"] == "pending"
-
-
-def test_applicant_dataset_remains_list_and_is_explicitly_fictional():
-    response = client.get("/api/applications")
-    assert response.status_code == 200
-    assert isinstance(response.json(), list)
-    assert len(response.json()) >= 15
-    assert all(item["fictional_test_data"] is True for item in response.json())
-
-
-def test_unknown_knowledge_version_returns_422():
-    response = client.post("/api/agent/evaluate", json={"application": APPLICATION, "knowledge_version": "missing-v9"})
-    assert response.status_code == 422
-
-
-def test_invalid_application_fields_return_422():
-    invalid_payloads = [
-        {**APPLICATION, "name": "  "},
-        {**APPLICATION, "income": 0},
-        {**APPLICATION, "vehicle_price": 0},
-        {**APPLICATION, "monthly_debt": -1},
-        {**APPLICATION, "down_payment": -1},
-        {**APPLICATION, "loan_amount": -1},
-        {**APPLICATION, "work_years": -1},
-        {**APPLICATION, "loan_term": 5},
-        {**APPLICATION, "loan_term": 85},
+    assert response.json()["status"] == "rejected"
+    assert response.json()["review_comment"] == "负债材料仍需进一步核实"
+    assert [event["event_type"] for event in events] == [
+        "application_submitted",
+        "risk_assessed",
+        "manual_reviewed",
     ]
-    for payload in invalid_payloads:
-        assess_response = client.post("/api/applications/assess", json=payload)
-        agent_response = client.post("/api/agent/evaluate", json={"application": payload})
-        assert assess_response.status_code == 422, payload
-        assert agent_response.status_code == 422, payload
+    assert events[-1]["details"]["decision"] == "rejected"
+
+
+@pytest.mark.parametrize(
+    ("decision", "expected_status"),
+    [
+        ("approved", "approved"),
+        ("needs_more_info", "needs_more_info"),
+        ("rejected", "rejected"),
+    ],
+)
+def test_review_decision_is_preserved(tmp_path, decision, expected_status):
+    with TestClient(create_app(tmp_path / f"{decision}.db")) as client:
+        application_id = client.post(
+            "/api/applications", json=VALID_APPLICATION
+        ).json()["id"]
+        response = client.patch(
+            f"/api/applications/{application_id}/review",
+            json={"decision": decision, "comment": "人工复核测试"},
+        )
+
+    assert response.json()["status"] == expected_status
+
+
+def test_invalid_application_and_missing_case(tmp_path):
+    with TestClient(create_app(tmp_path / "test.db")) as client:
+        invalid = {**VALID_APPLICATION, "authorized": False}
+        assert client.post("/api/applications", json=invalid).status_code == 422
+        assert client.get("/api/applications/not-found").status_code == 404
+        assert (
+            client.patch(
+                "/api/applications/not-found/review",
+                json={"decision": "approved", "comment": "资料一致"},
+            ).status_code
+            == 404
+        )
+
+
+def test_stateless_assessment_endpoint(tmp_path):
+    with TestClient(create_app(tmp_path / "test.db")) as client:
+        response = client.post("/api/applications/assess", json=VALID_APPLICATION)
+
+    assert response.status_code == 200
+    assert response.json()["assessment"]["score"] == 100
