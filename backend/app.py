@@ -1,11 +1,16 @@
 from pathlib import Path
 import json
+
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+
 from .risk_engine import assess
 
+ROOT = Path(__file__).parents[1]
+DATA = ROOT / "data" / "applicants.json"
+
 app = FastAPI(title="Auto Credit Agent API")
-DATA = Path(__file__).parents[1] / "data" / "applicants.json"
 
 class LoanApplication(BaseModel):
     name: str
@@ -29,3 +34,9 @@ def list_applications():
 def assess_application(application: LoanApplication):
     result = assess(application.model_dump())
     return {"application": application.model_dump(), "assessment": result}
+
+app.mount(
+    "/",
+    StaticFiles(directory=ROOT / "frontend", html=True),
+    name="frontend",
+)
