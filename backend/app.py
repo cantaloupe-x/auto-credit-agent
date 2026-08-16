@@ -1,202 +1,120 @@
-from datetime import datetime
-from pathlib import Path
+from contextlib import asynccontextmanager
 import json
-from typing import Literal
-from uuid import uuid4
+import os
+from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
-from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from fastapi import FastAPI, HTTPException, status
+from fastapi.responses import FileResponse
 
+from .agent import run_agent
+from .domain import DEFAULT_KNOWLEDGE_VERSION, SCHEMA_VERSION, WORKFLOW_VERSION
+from .models import LoanApplication, ReviewRequest
 from .risk_engine import assess
+from .schemas import AgentRequest, AgentResponse
+from .schemas import LoanApplication as AgentLoanApplication
+from .storage import ApplicationStore
+
 
 ROOT = Path(__file__).parents[1]
-DATA = ROOT / "data" / "applicants.json"
-ASSESSMENTS = ROOT / "data" / "assessments.json"
-AUDIT_LOGS = ROOT / "data" / "audit_logs.json"
+SEED_DATA = ROOT / "data" / "applicants.json"
 
-app = FastAPI(title="Auto Credit Agent API")
-
-
-def read_json(path: Path, default):
-    if not path.exists():
-        return default
-    return json.loads(path.read_text(encoding="utf-8"))
+# 部署时用 AUTO_CREDIT_DB 指向持久磁盘的挂载目录，例如 /var/data/auto_credit.db。
+# 不设这个变量就还是走仓库里的 data/auto_credit.db，本地开发不受影响。
+DEFAULT_DATABASE = Path(os.environ.get("AUTO_CREDIT_DB") or ROOT / "data" / "auto_credit.db")
 
 
-def write_json(path: Path, data):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+def create_app(database_path=None):
+    store = ApplicationStore(database_path or DEFAULT_DATABASE)
+
+    @asynccontextmanager
+    async def lifespan(_app):
+        store.initialize()
+        if store.is_empty():
+            seed_applications(store)
+        yield
+
+    api = FastAPI(title="Auto Credit Agent API", lifespan=lifespan)
+
+    @api.get("/", include_in_schema=False)
+    def frontend():
+        return FileResponse(ROOT / "frontend" / "index.html")
+
+    @api.get("/api/health")
+    def health():
+        return {"status": "ok", "database": "ok"}
+
+    @api.get("/api/applications")
+    def list_applications():
+        return store.list_applications()
+
+    @api.get("/api/applications/{application_id}")
+    def get_application(application_id: str):
+        application = store.get_application(application_id)
+        if application is None:
+            raise HTTPException(status_code=404, detail="案件不存在")
+        return application
+
+    # 只评估不落库：沿用 PR #1 的宽松输入模型，允许不带前端展示字段的最小载荷。
+    @api.post("/api/applications/assess")
+    def assess_application(application: AgentLoanApplication):
+        payload = application.model_dump()
+        return {"application": payload, "assessment": assess(payload)}
+
+    # 落库的申请必须带齐前端字段和资料使用授权，用严格模型。
+    @api.post("/api/applications", status_code=status.HTTP_201_CREATED)
+    def create_application(application: LoanApplication):
+        payload = application.model_dump()
+        return store.create_application(payload, assess(payload))
+
+    @api.patch("/api/applications/{application_id}/review")
+    def review_application(application_id: str, review: ReviewRequest):
+        application = store.review_application(application_id, **review.model_dump())
+        if application is None:
+            raise HTTPException(status_code=404, detail="案件不存在")
+        return application
+
+    @api.get("/api/applications/{application_id}/audit")
+    def list_audit_events(application_id: str):
+        events = store.list_audit_events(application_id)
+        if events is None:
+            raise HTTPException(status_code=404, detail="案件不存在")
+        return events
+
+    # 以下两个端点来自 PR #1 的知识与评估工作流。
+    @api.get("/api/agent/metadata")
+    def agent_metadata():
+        return {
+            "schema_version": SCHEMA_VERSION,
+            "workflow_version": WORKFLOW_VERSION,
+            "default_knowledge_version": DEFAULT_KNOWLEDGE_VERSION,
+            "model_api_required": False,
+            "final_decision": "human_confirmation_required",
+            "fictional_test_data": True,
+        }
+
+    @api.post("/api/agent/evaluate", response_model=AgentResponse)
+    def evaluate_with_agent(request: AgentRequest):
+        try:
+            return run_agent(request)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
+
+    return api
 
 
-def load_applications():
-    return read_json(DATA, [])
+def seed_applications(store):
+    records = json.loads(SEED_DATA.read_text(encoding="utf-8"))
+    for record in records:
+        application_id = record.pop("id")
+        record["authorized"] = True
+        application = LoanApplication(**record)
+        payload = application.model_dump()
+        store.create_application(
+            payload,
+            assess(payload),
+            application_id=application_id,
+            actor="系统导入",
+        )
 
 
-def save_applications(items):
-    write_json(DATA, items)
-
-
-def load_assessments():
-    return read_json(ASSESSMENTS, [])
-
-
-def save_assessments(items):
-    write_json(ASSESSMENTS, items)
-
-
-def load_audit_logs():
-    return read_json(AUDIT_LOGS, [])
-
-
-def save_audit_logs(items):
-    write_json(AUDIT_LOGS, items)
-
-
-def find_application(app_id: str):
-    items = load_applications()
-    for index, item in enumerate(items):
-        if item["id"] == app_id:
-            return items, index, item
-    raise HTTPException(status_code=404, detail="Application not found")
-
-
-def latest_assessments_by_app():
-    by_app = {}
-    for assessment in load_assessments():
-        app_id = assessment["application_id"]
-        existing = by_app.get(app_id)
-        if not existing or assessment.get("assessed_at", "") > existing.get("assessed_at", ""):
-            by_app[app_id] = assessment
-    return by_app
-
-
-def enrich_applications(items):
-    assessments = latest_assessments_by_app()
-    enriched = []
-    for item in items:
-        record = dict(item)
-        assessment = assessments.get(item["id"])
-        if assessment:
-            record["assessment"] = {
-                key: value for key, value in assessment.items() if key != "application_id"
-            }
-        enriched.append(record)
-    return enriched
-
-
-class LoanApplication(BaseModel):
-    name: str = Field(min_length=2, max_length=50)
-    income: float = Field(gt=0)
-    monthly_debt: float = Field(ge=0)
-    vehicle_price: float = Field(gt=0)
-    down_payment: float = Field(ge=0)
-    loan_amount: float = Field(gt=0)
-    loan_term: int = Field(default=36, ge=6, le=84)
-    work_years: float = Field(default=3, ge=0, le=60)
-    recent_overdue: bool = False
-
-
-class Decision(BaseModel):
-    decision: Literal["通过", "补充资料", "拒绝"]
-    risk_level: str
-    comment: str
-    operator: str = "reviewer-001"
-
-
-@app.get("/api/health")
-def health(): 
-    return {"status": "ok"}
-
-
-@app.get("/api/applications")
-def list_applications():
-    return enrich_applications(load_applications())
-
-
-@app.post("/api/applications/assess")
-def assess_application(application: LoanApplication):
-    if application.down_payment > application.vehicle_price:
-        raise HTTPException(status_code=422, detail="首付金额不能超过车辆价格")
-    if application.loan_amount + application.down_payment > application.vehicle_price * 1.05:
-        raise HTTPException(status_code=422, detail="贷款与首付总额明显超过车辆价格")
-        
-        items = load_applications()
-        
-        record = {
-        "id": f"CL-{uuid4().hex[:10].upper()}",
-        **application.model_dump(),
-        "status": "待风险评估",
-        "created_at": datetime.now().isoformat(),
-    }
-        
-        items.append(record)
-        save_applications(items)
-        
-        return record
-
-
-@app.post("/api/applications/{app_id}/assess")
-def assess_application(app_id: str):
-    items, index, application = find_application(app_id)
-    result = assess(application)
-
-    assessment_record = {
-        "application_id": app_id,
-        **result,
-        "assessed_at": datetime.now().isoformat(),
-    }
-    assessments = load_assessments()
-    assessments.append(assessment_record)
-    save_assessments(assessments)
-
-    items[index]["status"] = "待人工复核"
-    save_applications(items)
-
-    return {"application": items[index], "assessment": result}
-
-
-@app.post("/api/applications/{application_id}/decision")
-def save_decision(application_id: str, decision: Decision):
-    items = load_applications()
-
-    for item in items:
-        if item.get("id") == application_id:
-            if item.get("status") not in {"待人工复核", "补充资料"}:
-                raise HTTPException(status_code=409, detail="当前案件状态不允许重复审批")
-
-            item["status"] = decision.decision
-            item["decision"] = decision.model_dump()
-            save_applications(items)
-
-            logs = load_audit_logs()
-            logs.append({
-                "id": uuid4().hex,
-                "application_id": application_id,
-                "action": "人工复核",
-                "decision": decision.decision,
-                "risk_level": decision.risk_level,
-                "comment": decision.comment,
-                "operator": decision.operator,
-                "created_at": datetime.now().isoformat(),
-            })
-            save_audit_logs(logs)
-            return enrich_applications([item])[0]
-
-    raise HTTPException(status_code=404, detail="案件不存在")
-
-
-@app.get("/api/applications/{application_id}/audit")
-def get_audit_logs(application_id: str):
-    find_application(application_id)
-    return [
-        log for log in load_audit_logs()
-        if log.get("application_id") == application_id
-    ]
-
-
-app.mount(
-    "/",
-    StaticFiles(directory=ROOT / "frontend", html=True),
-    name="frontend",
-)
+app = create_app()
