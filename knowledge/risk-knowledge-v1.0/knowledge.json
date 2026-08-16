@@ -1,0 +1,97 @@
+{
+  "version": "risk-knowledge-v1.0",
+  "effective_date": "2026-08-07",
+  "fictional_test_data": true,
+  "notice": "完全虚构的测试知识，仅用于软件开发与评测，不构成真实授信政策或法律建议。",
+  "entries": [
+    {
+      "id": "KB-DTI-001",
+      "version": "risk-knowledge-v1.0",
+      "title": "负债收入比核验",
+      "keywords": ["负债收入比", "收入缺失", "收入"],
+      "guidance": "负债收入比较高或收入无效时，应核对收入与存量负债材料，由人工判断可负担性。",
+      "required_documents": ["近6个月银行流水", "收入证明", "存量贷款还款明细"]
+    },
+    {
+      "id": "KB-DOWN-001",
+      "version": "risk-knowledge-v1.0",
+      "title": "首付与车辆价格核验",
+      "keywords": ["首付比例", "车辆"],
+      "guidance": "首付比例偏低时，应核验购车合同、首付款来源和车辆报价的一致性。",
+      "required_documents": ["购车合同或订单", "首付款来源凭证"]
+    },
+    {
+      "id": "KB-WORK-001",
+      "version": "risk-knowledge-v1.0",
+      "title": "任职稳定性核验",
+      "keywords": ["任职时间", "工作", "单位"],
+      "guidance": "任职时间较短时，应补充劳动关系与连续收入材料，不能据此自动拒绝。",
+      "required_documents": ["劳动合同或在职证明", "近6个月银行流水"]
+    },
+    {
+      "id": "KB-OVERDUE-001",
+      "version": "risk-knowledge-v1.0",
+      "title": "近期逾期记录核验",
+      "keywords": ["逾期记录", "逾期"],
+      "guidance": "存在近期逾期测试记录时，应核对记录状态和申请人说明，并交由人工复核。",
+      "required_documents": ["逾期记录说明", "还款状态证明"]
+    },
+    {
+      "id": "KB-AMOUNT-001",
+      "version": "risk-knowledge-v1.0",
+      "title": "融资金额一致性核验",
+      "keywords": ["金额之和", "金额不一致", "车辆价格不一致"],
+      "guidance": "首付金额与贷款金额之和同车辆价格明显不一致时，不得自动判断，应核对合同、报价和融资结构并交人工确认。",
+      "required_documents": ["购车合同或订单", "车辆报价单", "融资金额说明"]
+    },
+    {
+      "id": "KB-TERM-001",
+      "version": "risk-knowledge-v1.0",
+      "title": "贷款期限核验",
+      "keywords": ["贷款期限", "长期偿付"],
+      "guidance": "贷款期限较长时，应结合收入稳定性和车辆情况核验长期偿付安排，由人工确定是否适当。",
+      "required_documents": ["长期还款计划说明"]
+    },
+    {
+      "id": "KB-COMPLETE-001",
+      "version": "risk-knowledge-v1.0",
+      "title": "申请资料完整度",
+      "keywords": ["缺失", "缺件", "资料", "未提供"],
+      "guidance": "关键资料缺失时只能提出补件建议，不得声称核验完成或自动作出授信决定。",
+      "required_documents": []
+    },
+    {
+      "id": "KB-INCOME-001",
+      "version": "risk-knowledge-v1.0",
+      "title": "收入真实性与稳定性核验",
+      "keywords": ["收入", "银行流水", "收入证明"],
+      "guidance": "收入信息应通过授权范围内的收入证明和连续流水交叉核对，测试输入本身不代表已核验。",
+      "required_documents": ["近6个月银行流水", "收入证明"]
+    },
+    {
+      "id": "KB-DUPLICATE-001",
+      "version": "risk-knowledge-v1.0",
+      "title": "重复或异常申请核验",
+      "keywords": ["重复申请", "异常申请", "异常"],
+      "guidance": "发现短期重复提交、关键信息冲突或异常申请模式时，应暂停自动流转并交人工核验，不得直接拒绝。",
+      "required_documents": ["重复申请情况说明"]
+    },
+    {
+      "id": "KB-CONSENT-001",
+      "version": "risk-knowledge-v1.0",
+      "title": "资料授权范围",
+      "keywords": ["授权", "授权范围", "同意"],
+      "guidance": "仅可在申请人明确授权的用途、资料类型和有效期内进行测试核验，超出范围应重新取得授权。",
+      "required_documents": ["有效的资料授权记录"]
+    },
+    {
+      "id": "KB-HUMAN-001",
+      "version": "risk-knowledge-v1.0",
+      "title": "人工最终确认要求",
+      "keywords": ["人工"],
+      "always_include": true,
+      "guidance": "规则分数和 Agent 建议均不得作为自动授信决定，最终结果必须由授权人员确认并留痕。",
+      "required_documents": []
+    }
+  ]
+}
