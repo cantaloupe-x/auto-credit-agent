@@ -16,15 +16,264 @@
 <section class="content console"><div class="metrics"><div class="metric"><div class="label">待人工复核</div><div class="num">08</div><div class="hint">较昨日 +2</div></div><div class="metric"><div class="label">模型处理中</div><div class="num">03</div><div class="hint">平均用时 18 秒</div></div><div class="metric"><div class="label">今日通过率</div><div class="num">68%</div><div class="hint">在目标区间内</div></div><div class="metric"><div class="label">资料完整度</div><div class="num">92%</div><div class="hint">较上周 +5%</div></div></div>
 <div class="layout"><div class="panel"><div class="panel-head"><div><h2>案件队列</h2><div class="sub">按处理状态筛选 · 共 16 件</div></div><button class="btn">导出</button></div><div class="filters"><input placeholder="搜索姓名 / 案件编号"/><select><option>全部状态</option><option>待人工复核</option><option>模型处理中</option><option>已完成</option></select></div><div id="caseList"></div></div>
 <div class="panel" id="detailPanel"></div></div></section>
-<section class="content applicant"><div class="panel"><div class="panel-head"><div><h2>汽车贷款申请</h2><div class="sub">模拟授权 · 测试数据 · 预计 3 分钟完成</div></div><span class="tag blue">步骤 1 / 2</span></div><div style="padding:24px"><div class="notice">我们将仅在本次审批范围内使用你授权的身份、收入、负债与车辆信息。你可以随时查看授权记录。</div><div class="section"><h3>申请人信息</h3><div class="formgrid"><label>姓名<input value="陈思远"/></label><label>身份证号<input value="310***********4218"/></label><label>所在城市<select><option>上海市</option><option>北京市</option><option>广州市</option></select></label><label>职业类型<select><option>企业职员</option><option>个体经营</option><option>自由职业</option></select></label><label>月均收入（元）<input value="18500"/></label><label>现有月供（元）<input value="4200"/></label></div></div><div class="section"><h3>车辆与融资需求</h3><div class="formgrid"><label>车辆品牌 / 型号<input value="2024 款 凯美瑞 2.0G"/></label><label>车辆价格（元）<input value="189800"/></label><label>首付金额（元）<input value="59800"/></label><label>申请贷款（元）<input value="130000"/></label><label>期数<select><option>36 期</option><option>24 期</option><option>48 期</option></select></label><label>车辆来源<select><option>4S 店新车</option><option>二手车商</option></select></label></div></div><label class="check"><input type="checkbox" checked/> 我已阅读并同意《个人信息授权书》，授权车贷智审进行本次贷款审批所需的模拟核验。</label><button class="btn primary" onclick="submitApplication()">提交申请并开始核验</button></div></div></section>
+<section class="content applicant"><div class="panel"><div class="panel-head"><div><h2>汽车贷款申请</h2><div class="sub">模拟授权 · 测试数据 · 预计 3 分钟完成</div></div><span class="tag blue">步骤 1 / 2</span></div><div style="padding:24px"><div class="notice">我们将仅在本次审批范围内使用你授权的身份、收入、负债与车辆信息。你可以随时查看授权记录。</div><div class="section"><h3>申请人信息</h3><div class="formgrid"><label>姓名<input id="applicantName" value="陈思远"/></label><label>身份证号<input value="310***********4218"/></label><label>所在城市<select><option>上海市</option><option>北京市</option><option>广州市</option></select></label><label>职业类型<select><option>企业职员</option><option>个体经营</option><option>自由职业</option></select></label><label>月均收入（元）<input id="income" type="number" min="0" value="18500"/></label><label>现有月供（元）<input id="monthlyDebt" type="number" min="0" value="4200"/></label></div></div><div class="section"><h3>车辆与融资需求</h3><div class="formgrid"><label>车辆品牌 / 型号<input value="2024 款 凯美瑞 2.0G"/></label><label>车辆价格（元）<input id="vehiclePrice" type="number" min="1" value="189800"/></label><label>首付金额（元）<input id="downPayment" type="number" min="0" value="59800"/></label><label>申请贷款（元）<input id="loanAmount" type="number" min="1" value="130000"/></label><label>期数<select id="loanTerm"><option value="36">36 期</option><option value="24">24 期</option><option value="48">48 期</option></select></label><label>车辆来源<select><option>4S 店新车</option><option>二手车商</option></select></label></div></div><label class="check"><input type="checkbox" checked/> 我已阅读并同意《个人信息授权书》，授权车贷智审进行本次贷款审批所需的模拟核验。</label><button class="btn primary" onclick="submitApplication()">提交申请并开始核验</button><div id="assessmentResult"></div></div></div></section>
 </main></div><div class="toast" id="toast"></div>
 <script>
-const cases=[{id:'CL-20260730-018',name:'陈思远',vehicle:'2024 款 凯美瑞 2.0G',amount:'¥130,000',status:'待人工复核',tag:'amber',score:72, income:'¥18,500 / 月', debt:'¥4,200 / 月', tenure:'3 年 8 个月', down:'31.5%', risk:['负债收入比 42.1%','近 6 个月 1 次信用卡逾期','首付比例合理'], events:[['09:42','模型完成风险评估 · v2.4.1'],['09:40','收入流水核验通过'],['09:38','申请人完成资料授权']]},{id:'CL-20260730-017',name:'周嘉豪',vehicle:'2023 款 宝马 3 系',amount:'¥268,000',status:'待人工复核',tag:'red',score:54,income:'¥22,000 / 月',debt:'¥12,800 / 月',tenure:'1 年 2 个月',down:'20%',risk:['负债收入比 58.2%','单位任职信息待核实','车辆估值偏高'],events:[['09:25','触发反欺诈规则 R-103'],['09:22','模型完成风险评估 · v2.4.1'],['09:15','申请人完成资料授权']]},{id:'CL-20260730-016',name:'刘雨桐',vehicle:'比亚迪 汉 DM-i',amount:'¥158,000',status:'模型处理中',tag:'blue',score:0,income:'¥16,800 / 月',debt:'¥2,100 / 月',tenure:'5 年 4 个月',down:'35%',risk:['等待社保接口返回'],events:[['09:10','模型排队中'],['09:08','资料完整性检查通过']]},{id:'CL-20260730-015',name:'王晨',vehicle:'大众 迈腾 330TSI',amount:'¥98,000',status:'已完成 · 通过',tag:'green',score:86,income:'¥20,500 / 月',debt:'¥3,200 / 月',tenure:'6 年 1 个月',down:'40%',risk:['收入稳定','信用记录良好'],events:[['昨日 17:20','人工复核通过'],['昨日 17:18','模型建议通过 · v2.4.1']]}];let selected=0;
-function renderList(){document.getElementById('caseList').innerHTML=cases.map((c,i)=>`<div class="case ${i===selected?'selected':''}" onclick="selectCase(${i})"><div><h3>${c.name}<span class="tag ${c.tag}">${c.status}</span></h3><p>${c.id}<br>${c.vehicle} · 申请 ${c.amount}</p></div><b style="color:${c.score&&c.score<60?'var(--red)':'var(--ink)'}">${c.score||'--'}<small style="font-size:10px;color:var(--muted)"> 分</small></b></div>`).join('')}
-function selectCase(i){selected=i;renderList();renderDetail()}
-function renderDetail(){const c=cases[selected];document.getElementById('detailPanel').innerHTML=`<div class="detail"><div class="detail-title"><div><h2>${c.name} <span class="tag ${c.tag}">${c.status}</span></h2><p>${c.id} · 最后更新 2026-07-30 09:42</p></div><div class="actions"><button class="btn">补充资料</button><button class="btn primary" onclick="approve()">通过并留痕</button></div></div><div class="tabs"><button class="active">资信档案</button><button>原始资料</button><button>审计记录</button></div><div class="section"><h3>核心资信摘要</h3><div class="facts"><div class="fact"><label>月均收入</label><b>${c.income}</b></div><div class="fact"><label>现有月供</label><b>${c.debt}</b></div><div class="fact"><label>当前单位任职</label><b>${c.tenure}</b></div><div class="fact"><label>首付比例</label><b>${c.down}</b></div><div class="fact"><label>申请金额</label><b>${c.amount}</b></div><div class="fact"><label>资料完整度</label><b>100%</b></div></div></div><div class="section"><h3>模型判断与风险依据</h3><div class="riskbox"><div class="score"><div><strong>${c.score||'--'}</strong><span>${c.score?'中低风险':'计算中'}</span></div></div><div><div class="notice">模型建议：${c.score>=70?'建议通过，进入人工确认':'建议谨慎，需补充核验后决定'}。模型版本 v2.4.1，仅供审批人员参考。</div><div class="reasons" style="margin-top:10px">${c.risk.map((r,j)=>`<span class="reason ${j===1&&c.score<70?'alert':j===0&&c.score>=70?'ok':''}">${r}</span>`).join('')}</div></div></div></div><div class="section"><h3>人工复核</h3><div class="review"><label>复核结论<select id="decision"><option>通过</option><option>补充资料</option><option>拒绝</option></select></label><label>风险等级<select><option>中低风险</option><option>中风险</option><option>高风险</option></select></label><label style="grid-column:1/-1">审批意见<textarea id="comment">已核对收入、首付与车辆信息，资料一致，建议按模型结论处理。</textarea></label></div></div><div class="section"><h3>处理记录</h3><div class="timeline">${c.events.map(e=>`<div class="event"><i class="dot"></i><div><b>${e[1]}</b><br><span>${e[0]} · 林晓雯</span></div></div>`).join('')}</div></div></div>`}
-function approve(){cases[selected].status='已完成 · 通过';cases[selected].tag='green';renderList();renderDetail();showToast('审批结果已保存，已写入审计记录')}
-function submitApplication(){showToast('申请已提交，模拟核验完成后将进入企业审批队列');document.querySelector('[data-view="console"]').click()}
-function showToast(t){const el=document.getElementById('toast');el.textContent=t;el.style.display='block';setTimeout(()=>el.style.display='none',2600)}
-document.querySelectorAll('.nav button[data-view]').forEach(b=>b.onclick=()=>{document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');const v=b.dataset.view;document.querySelector('.console').style.display=v==='console'?'block':'none';document.querySelector('.applicant').style.display=v==='applicant'?'block':'none';document.getElementById('pageTitle').textContent=v==='console'?'审批工作台':'申请人入口'});renderList();renderDetail();
+let cases = [];
+let selected = 0;
+
+function fmtMoney(value) {
+  return "¥" + Number(value).toLocaleString("zh-CN");
+}
+
+function fmtTenure(years) {
+  const totalMonths = Math.round(Number(years) * 12);
+  const y = Math.floor(totalMonths / 12);
+  const m = totalMonths % 12;
+  return `${y} 年 ${m} 个月`;
+}
+
+function fmtDownRatio(downPayment, vehiclePrice) {
+  return ((Number(downPayment) / Number(vehiclePrice)) * 100).toFixed(1) + "%";
+}
+
+function caseAmount(c) {
+  return c.amount || (c.loan_amount != null ? fmtMoney(c.loan_amount) : "--");
+}
+
+function caseVehicle(c) {
+  return c.vehicle || (c.vehicle_price != null ? "车辆 " + fmtMoney(c.vehicle_price) : "待补充");
+}
+
+function caseIncome(c) {
+  return c.income != null && typeof c.income === "number" ? fmtMoney(c.income) + " / 月" : c.income || "--";
+}
+
+function caseDebt(c) {
+  return c.monthly_debt != null ? fmtMoney(c.monthly_debt) + " / 月" : c.debt || "--";
+}
+
+function caseTenure(c) {
+  return c.work_years != null ? fmtTenure(c.work_years) : c.tenure || "--";
+}
+
+function caseDown(c) {
+  if (c.down) return c.down;
+  if (c.down_payment != null && c.vehicle_price != null) return fmtDownRatio(c.down_payment, c.vehicle_price);
+  return "--";
+}
+
+function caseScore(c) {
+  return c.score ?? c.assessment?.score ?? null;
+}
+
+function caseStatus(c) {
+  return c.status || "待人工复核";
+}
+
+function caseTag(c) {
+  if (c.status === "通过") return "green";
+  if (c.status === "拒绝") return "red";
+  if (c.status === "补充资料") return "amber";
+  if (c.status === "待风险评估") return "blue";
+  if (c.tag) return c.tag;
+  const score = caseScore(c);
+  if (score == null) return "amber";
+  if (score >= 80) return "green";
+  if (score >= 60) return "amber";
+  return "red";
+}
+
+function caseReasons(c) {
+  return c.risk || c.assessment?.reasons || ["等待风险评估"];
+}
+
+function caseEvents(c) {
+  if (c.events) return c.events;
+  const events = [];
+  if (c.created_at) {
+    events.push([formatTime(c.created_at), "申请人完成资料授权"]);
+  }
+  if (c.assessment) {
+    events.push([
+      formatTime(c.assessment.assessed_at),
+      `模型完成风险评估 · ${c.assessment.model_version || "rule-v1.0"}`
+    ]);
+  }
+  if (c.decision) {
+    events.push([
+      "--",
+      `人工复核：${c.decision.decision} · ${c.decision.operator || "reviewer-001"}`
+    ]);
+  }
+  return events.length ? events : [["--", "案件已载入队列"]];
+}
+
+function formatTime(value) {
+  if (!value) return "--";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value.slice(11, 16) || "--";
+  return date.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false });
+}
+
+async function loadCases(keepId) {
+  try {
+    const response = await fetch("/api/applications");
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const previousId = keepId ?? cases[selected]?.id;
+    cases = await response.json();
+    renderList();
+
+    if (cases.length > 0) {
+      const nextIndex = previousId ? cases.findIndex(item => item.id === previousId) : 0;
+      selected = nextIndex >= 0 ? nextIndex : 0;
+      renderDetail();
+    } else {
+      selected = 0;
+      document.getElementById("detailPanel").innerHTML = "";
+    }
+  } catch (error) {
+    showToast("案件加载失败，请稍后重试");
+    console.error(error);
+  }
+}
+
+function renderList() {
+  document.getElementById("caseList").innerHTML = cases.map((c, i) => {
+    const score = caseScore(c);
+    const tag = caseTag(c);
+    return `<div class="case ${i === selected ? "selected" : ""}" onclick="selectCase(${i})"><div><h3>${c.name}<span class="tag ${tag}">${caseStatus(c)}</span></h3><p>${c.id}<br>${caseVehicle(c)} · 申请 ${caseAmount(c)}</p></div><b style="color:${score && score < 60 ? "var(--red)" : "var(--ink)"}">${score ?? "--"}<small style="font-size:10px;color:var(--muted)"> 分</small></b></div>`;
+  }).join("");
+}
+
+function selectCase(i) {
+  selected = i;
+  renderList();
+  renderDetail();
+}
+
+function renderDetail() {
+  const c = cases[selected];
+  if (!c) return;
+
+  const score = caseScore(c);
+  const tag = caseTag(c);
+  const reasons = caseReasons(c);
+  const recommendation = c.assessment?.recommendation || (score >= 70 ? "建议通过，进入人工确认" : "建议谨慎，需补充核验后决定");
+  const modelVersion = c.assessment?.model_version || "rule-v1.0";
+
+  const assessAction = c.status === "待风险评估"
+    ? `<button class="btn primary" onclick="runAssessment()">开始风险评估</button>`
+    : ["通过", "拒绝"].includes(c.status)
+      ? ""
+      : `<button class="btn primary" onclick="approve()">保存人工结论</button>`;
+
+  document.getElementById("detailPanel").innerHTML = `<div class="detail"><div class="detail-title"><div><h2>${c.name} <span class="tag ${tag}">${caseStatus(c)}</span></h2><p>${c.id} · 创建 ${c.created_at ? c.created_at.replace("T", " ").slice(0, 16) : "--"}</p></div><div class="actions"><button class="btn">补充资料</button>${assessAction}</div></div><div class="tabs"><button class="active">资信档案</button><button>原始资料</button><button>审计记录</button></div><div class="section"><h3>核心资信摘要</h3><div class="facts"><div class="fact"><label>月均收入</label><b>${caseIncome(c)}</b></div><div class="fact"><label>现有月供</label><b>${caseDebt(c)}</b></div><div class="fact"><label>当前单位任职</label><b>${caseTenure(c)}</b></div><div class="fact"><label>首付比例</label><b>${caseDown(c)}</b></div><div class="fact"><label>申请金额</label><b>${caseAmount(c)}</b></div><div class="fact"><label>资料完整度</label><b>100%</b></div></div></div><div class="section"><h3>模型判断与风险依据</h3><div class="riskbox"><div class="score"><div><strong>${score ?? "--"}</strong><span>${c.assessment?.level || (score ? "中低风险" : "计算中")}</span></div></div><div><div class="notice">模型建议：${recommendation}。模型版本 ${modelVersion}，仅供审批人员参考。</div><div class="reasons" style="margin-top:10px">${reasons.map((r, j) => `<span class="reason ${j === 1 && score != null && score < 70 ? "alert" : j === 0 && score != null && score >= 70 ? "ok" : ""}">${r}</span>`).join("")}</div></div></div></div><div class="section"><h3>人工复核</h3><div class="review"><label>复核结论<select id="decision"><option ${c.decision?.decision === "通过" ? "selected" : ""}>通过</option><option ${c.decision?.decision === "补充资料" ? "selected" : ""}>补充资料</option><option ${c.decision?.decision === "拒绝" ? "selected" : ""}>拒绝</option></select></label><label>风险等级<select id="riskLevel"><option ${c.decision?.risk_level === "中低风险" ? "selected" : ""}>中低风险</option><option ${c.decision?.risk_level === "中风险" ? "selected" : ""}>中风险</option><option ${c.decision?.risk_level === "高风险" ? "selected" : ""}>高风险</option></select></label><label style="grid-column:1/-1">审批意见<textarea id="comment">${c.decision?.comment || "已核对收入、首付与车辆信息，资料一致，建议按模型结论处理。"}</textarea></label></div></div><div class="section"><h3>处理记录</h3><div class="timeline">${caseEvents(c).map(e => `<div class="event"><i class="dot"></i><div><b>${e[1]}</b><br><span>${e[0]} · 林晓雯</span></div></div>`).join("")}</div></div></div>`;
+}
+
+async function runAssessment() {
+  const current = cases[selected];
+  if (!current) return;
+
+  try {
+    const response = await fetch(`/api/applications/${current.id}/assess`, {
+      method: "POST"
+    });
+
+    if (!response.ok) {
+      const message = await response.text();
+      throw new Error(message);
+    }
+
+    showToast("风险评估已完成");
+    await loadCases(current.id);
+  } catch (error) {
+    showToast("评估失败，请稍后重试");
+    console.error(error);
+  }
+}
+
+async function approve() {
+  const current = cases[selected];
+  if (!current) return;
+
+  const response = await fetch(
+    `/api/applications/${current.id}/decision`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        decision: document.querySelector("#decision").value,
+        risk_level: document.querySelector("#riskLevel").value,
+        comment: document.querySelector("#comment").value,
+        operator: "reviewer-001"
+      })
+    }
+  );
+
+  if (!response.ok) {
+    showToast("审批结果保存失败");
+    return;
+  }
+
+  showToast("审批结果已保存");
+  await loadCases(current.id);
+}
+
+async function submitApplication() {
+  const response = await fetch("/api/applications", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      name: document.querySelector("#applicantName").value.trim(),
+      income: Number(document.querySelector("#income").value),
+      monthly_debt: Number(document.querySelector("#monthlyDebt").value),
+      vehicle_price: Number(document.querySelector("#vehiclePrice").value),
+      down_payment: Number(document.querySelector("#downPayment").value),
+      loan_amount: Number(document.querySelector("#loanAmount").value),
+      loan_term: Number(document.querySelector("#loanTerm").value),
+      work_years: 3,
+      recent_overdue: false
+    })
+  });
+
+  if (!response.ok) {
+    showToast("申请提交失败");
+    return;
+  }
+
+  showToast("申请已进入审批队列");
+  await loadCases();
+}
+
+function showAssessment(assessment) {
+  const box = document.getElementById("assessmentResult");
+  box.innerHTML = `<div class="section"><h3>风险评估结果</h3><div class="riskbox"><div class="score"><div><strong>${assessment.score}</strong><span>${assessment.level}</span></div></div><div><div class="notice">模型建议：${assessment.recommendation}。模型版本 ${assessment.model_version}。</div><div class="reasons" style="margin-top:10px">${assessment.reasons.map(r => `<span class="reason">${r}</span>`).join("")}</div></div></div></div>`;
+}
+
+function showToast(t) {
+  const el = document.getElementById("toast");
+  el.textContent = t;
+  el.style.display = "block";
+  setTimeout(() => el.style.display = "none", 2600);
+}
+
+document.querySelectorAll(".nav button[data-view]").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".nav button").forEach(x => x.classList.remove("active"));
+  b.classList.add("active");
+  const v = b.dataset.view;
+  document.querySelector(".console").style.display = v === "console" ? "block" : "none";
+  document.querySelector(".applicant").style.display = v === "applicant" ? "block" : "none";
+  document.getElementById("pageTitle").textContent = v === "console" ? "审批工作台" : "申请人入口";
+});
+
+loadCases();
 </script></body></html>
